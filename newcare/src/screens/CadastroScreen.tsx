@@ -41,6 +41,7 @@ export function CadastroScreen({ navigation }: Props) {
   const [etapaAtual, setEtapaAtual] = useState(0);
   const ultimaEtapa = etapaAtual === etapas.length - 1;
   const atividadesSelecionadas = atividadesPorArea[foco];
+  const todasAtividadesSelecionadas = Object.values(atividadesPorArea).flat();
 
   function selecionarPaleta(paletaAcessibilidade: PaletaAcessibilidadeId) {
     setPaleta(paletaAcessibilidade);
@@ -125,7 +126,15 @@ export function CadastroScreen({ navigation }: Props) {
 
     try {
       setCarregando(true);
-      await cadastrar({ nome, email, senha, paletaAcessibilidade: paleta, foco, tempoDiario, atividadesSelecionadas });
+      await cadastrar({
+        nome,
+        email,
+        senha,
+        paletaAcessibilidade: paleta,
+        foco,
+        tempoDiario,
+        atividadesSelecionadas: todasAtividadesSelecionadas,
+      });
     } catch (error) {
       const mensagem = error instanceof Error ? error.message : "Revise os dados e tente novamente.";
       Alert.alert("Não foi possível cadastrar", mensagem);
@@ -233,7 +242,7 @@ export function CadastroScreen({ navigation }: Props) {
                 <Text style={styles.resumoTitulo}>Resumo do cadastro</Text>
                 <Text style={styles.resumoTexto}>{nome || "Seu nome"} • {email || "email"}</Text>
                 <Text style={styles.resumoTexto}>Área: {areas.find((area) => area.valor === foco)?.label}</Text>
-                <Text style={styles.resumoTexto}>Atividades: {atividadesSelecionadas.length}/2 escolhidas</Text>
+                <Text style={styles.resumoTexto}>Atividades escolhidas: {todasAtividadesSelecionadas.length}</Text>
                 <Text style={styles.resumoTexto}>Tempo diário: {tempoDiario} min</Text>
               </View>
             </View>

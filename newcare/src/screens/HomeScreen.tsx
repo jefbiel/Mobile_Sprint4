@@ -1,7 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import * as Location from "expo-location";
-import { Socket } from "socket.io-client";
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { useApp } from "../context/AppContext";
@@ -9,11 +6,7 @@ import { CardMissao } from "../components/CardMissao";
 import { StatusMissao } from "../types";
 import { AppColors } from "../../constants/theme";
 import { BrandHeader } from "../components/BrandHeader";
-import { conectarSocketIo, publicarCalculoAguaIo, publicarConsumoAguaIo, REALTIME_URL } from "../services/realtime";
-import { AguaResultado, LeituraIoT } from "../types/realtime";
 import { RootStackParamList } from "../routes/types";
-
-const MEDIDAS_AGUA = [250, 300, 500, 750, 1000, 1500, 2000];
 
 function progressoNivel(xp: number) {
   const faixas = [0, 100, 250, 500, 900, 1400];
@@ -32,73 +25,20 @@ export function HomeScreen() {
     missoes,
     hidratacao,
     completarMissao,
-    selecionarMedidaAgua,
     registrarAguaBebida,
   } = useApp();
   const styles = criarStyles(colors);
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-  const socketRef = useRef<Socket | null>(null);
-  const [socketConectado, setSocketConectado] = useState(false);
-  const [leituras, setLeituras] = useState<Record<string, LeituraIoT>>({});
-  const [erroRealtime, setErroRealtime] = useState<string | null>(null);
-  const [peso, setPeso] = useState("70");
-  const [temperaturaManual, setTemperaturaManual] = useState("");
-  const [resultadoAgua, setResultadoAgua] = useState<AguaResultado | null>(null);
-  const [calculandoAgua, setCalculandoAgua] = useState(false);
-  const [localizacaoStatus, setLocalizacaoStatus] = useState<"idle" | "loading" | "success" | "denied" | "error">("idle");
-  const [localizacaoTexto, setLocalizacaoTexto] = useState<string | null>(null);
   const concluidas = missoes.filter((m) => m.status === StatusMissao.Concluida).length;
   const pendentes = missoes.filter((m) => m.status === StatusMissao.Pendente);
   const percentualHoje = Math.round((concluidas / Math.max(1, missoes.length)) * 100);
   const xp = progressoNivel(usuario?.xp ?? 0);
-  const temperaturaIoT = Number(leituras["sensor/casa/temperatura"]?.valor);
-  const temperaturaAtual = Number(temperaturaManual.replace(",", ".")) || temperaturaIoT || 25;
-  const umidadeAtual = leituras["sensor/casa/umidade"]?.valor;
-  const statusSensor = leituras["sensor/status/conexao"]?.valor ?? "aguardando";
-
-  const calculoLocal = useMemo(() => {
-    const pesoKg = Number(peso.replace(",", "."));
-    if (!Number.isFinite(pesoKg) || pesoKg <= 0) return null;
-
-    const extraPorCalor = Math.max(0, temperaturaAtual - 24) * 80;
-    const ml = Math.round(pesoKg * 35 + extraPorCalor);
-    return {
-      ml,
-      litros: Number((ml / 1000).toFixed(2)),
-    };
-  }, [peso, temperaturaAtual]);
-  const metaAguaMl = resultadoAgua?.ml ?? calculoLocal?.ml ?? 0;
+  const metaAguaMl = hidratacao.metaMl ?? 0;
   const progressoAgua = metaAguaMl > 0 ? Math.min((hidratacao.consumidoMl / metaAguaMl) * 100, 100) : 0;
   const medidasRestantes = metaAguaMl > 0
     ? Math.max(0, Math.ceil((metaAguaMl - hidratacao.consumidoMl) / hidratacao.medidaPadraoMl))
     : 0;
-  const medidasTotais = metaAguaMl > 0 ? Math.ceil(metaAguaMl / hidratacao.medidaPadraoMl) : 0;
   const tipoMedida = hidratacao.medidaPadraoMl >= 1000 ? "garrafa" : "copo";
-
-  useEffect(() => {
-    const socket = conectarSocketIo({
-      onConexao: setSocketConectado,
-      onLeituraIoT: (leitura) => {
-        setErroRealtime(null);
-        setLeituras((atuais) => ({ ...atuais, [leitura.topico]: leitura }));
-      },
-      onResultadoAgua: (resultado) => {
-        setCalculandoAgua(false);
-        setResultadoAgua(resultado);
-      },
-      onErro: (mensagem) => {
-        setCalculandoAgua(false);
-        setErroRealtime(mensagem);
-      },
-    });
-
-    socketRef.current = socket;
-
-    return () => {
-      socket.disconnect();
-      socketRef.current = null;
-    };
-  }, []);
 
   function concluirMissao(id: string) {
     const missao = missoes.find((item) => item.id === id);
@@ -108,66 +48,10 @@ export function HomeScreen() {
     }
   }
 
-  function calcularAgua() {
-    const pesoKg = Number(peso.replace(",", "."));
-
-    if (!Number.isFinite(pesoKg) || pesoKg <= 0) {
-      Alert.alert("Peso inválido", "Informe seu peso em kg para calcular a quantidade de água.");
-      return;
-    }
-
-    setCalculandoAgua(true);
-    setErroRealtime(null);
-
-    try {
-      publicarCalculoAguaIo(socketRef.current, { pesoKg, temperaturaC: temperaturaAtual });
-    } catch {
-      setCalculandoAgua(false);
-      setResultadoAgua({
-        ml: calculoLocal?.ml ?? 0,
-        litros: calculoLocal?.litros ?? 0,
-        pesoKg,
-        temperaturaC: temperaturaAtual,
-        atualizadoEm: Date.now(),
-      });
-      setErroRealtime("Usando cálculo local porque o Socket.IO está offline.");
-    }
-  }
-
-  async function solicitarLocalizacao() {
-    setLocalizacaoStatus("loading");
-    setLocalizacaoTexto(null);
-
-    try {
-      const permissao = await Location.requestForegroundPermissionsAsync();
-      if (permissao.status !== Location.PermissionStatus.GRANTED) {
-        setLocalizacaoStatus("denied");
-        setLocalizacaoTexto("Permissão recusada. O cálculo continua usando a temperatura do sensor ou valor manual.");
-        return;
-      }
-
-      const posicao = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setLocalizacaoStatus("success");
-      setLocalizacaoTexto(
-        `Localização registrada: ${posicao.coords.latitude.toFixed(3)}, ${posicao.coords.longitude.toFixed(3)}`
-      );
-    } catch {
-      setLocalizacaoStatus("error");
-      setLocalizacaoTexto("Não foi possível obter a localização agora.");
-    }
-  }
-
   async function registrarConsumoAgua() {
     if (metaAguaMl <= 0 || !usuario) return;
 
     const atualizada = await registrarAguaBebida(metaAguaMl);
-    publicarConsumoAguaIo(socketRef.current, {
-      usuarioId: usuario.id,
-      medidaMl: atualizada.medidaPadraoMl,
-      consumidoMl: atualizada.consumidoMl,
-      metaMl: metaAguaMl,
-      metaBatida: atualizada.metaBatida,
-    });
 
     if (!hidratacao.metaBatida && atualizada.metaBatida) {
       Alert.alert("Meta de água batida", "Você ganhou 25 XP e 5 moedas.");
@@ -222,126 +106,44 @@ export function HomeScreen() {
           <View>
             <Text style={styles.painelLabelDestaque}>Hidratação inteligente</Text>
             <Text style={styles.hidratacaoTitulo}>
-              {resultadoAgua?.litros ?? calculoLocal?.litros ?? "--"} L hoje
+              {metaAguaMl > 0 ? `${(metaAguaMl / 1000).toFixed(2)} L` : "--"}
             </Text>
           </View>
-          <View style={[styles.statusPill, socketConectado ? styles.statusOnline : styles.statusOffline]}>
-            <Text style={styles.statusTexto}>{socketConectado ? "tempo real" : "offline"}</Text>
+          <View style={[styles.statusPill, metaAguaMl > 0 ? styles.statusOnline : styles.statusOffline]}>
+            <Text style={styles.statusTexto}>{metaAguaMl > 0 ? "calculado" : "pendente"}</Text>
           </View>
-        </View>
-
-        <View style={styles.inputsLinha}>
-          <View style={styles.inputGrupo}>
-            <Text style={styles.inputLabel}>Peso kg</Text>
-            <TextInput
-              value={peso}
-              onChangeText={setPeso}
-              keyboardType="numeric"
-              placeholder="70"
-              placeholderTextColor={colors.muted}
-              style={styles.input}
-            />
-          </View>
-          <View style={styles.inputGrupo}>
-            <Text style={styles.inputLabel}>Temperatura °C</Text>
-            <TextInput
-              value={temperaturaManual}
-              onChangeText={setTemperaturaManual}
-              keyboardType="numeric"
-              placeholder={Number.isFinite(temperaturaIoT) ? `${temperaturaIoT.toFixed(1)}` : "25"}
-              placeholderTextColor={colors.muted}
-              style={styles.input}
-            />
-          </View>
-        </View>
-
-        <View style={styles.iotGrid}>
-          <View style={styles.iotItem}>
-            <Text style={styles.iotValor}>{Number.isFinite(temperaturaIoT) ? `${temperaturaIoT.toFixed(1)}°C` : "--"}</Text>
-            <Text style={styles.iotLabel}>Sensor IoT</Text>
-          </View>
-          <View style={styles.iotItem}>
-            <Text style={styles.iotValor}>{umidadeAtual ? `${umidadeAtual}%` : "--"}</Text>
-            <Text style={styles.iotLabel}>Umidade</Text>
-          </View>
-          <View style={styles.iotItem}>
-            <Text style={styles.iotValor}>{statusSensor}</Text>
-            <Text style={styles.iotLabel}>Status</Text>
-          </View>
-        </View>
-
-        <View style={styles.acoesLinha}>
-          <Pressable style={styles.botaoPrimario} onPress={calcularAgua}>
-            {calculandoAgua ? (
-              <ActivityIndicator color={colors.surface} />
-            ) : (
-              <Text style={styles.botaoPrimarioTexto}>Calcular</Text>
-            )}
-          </Pressable>
-          <Pressable style={styles.botaoSecundario} onPress={solicitarLocalizacao}>
-            <Text style={styles.botaoSecundarioTexto}>
-              {localizacaoStatus === "loading" ? "Localizando..." : "Usar localização"}
-            </Text>
-          </Pressable>
-        </View>
-
-        <Text style={styles.feedbackTexto}>
-          {erroRealtime ?? localizacaoTexto ?? `Servidor: ${REALTIME_URL}`}
-        </Text>
-        <Pressable style={styles.botaoDetalheAgua} onPress={() => navigation.navigate("Hidratacao")}>
-          <Text style={styles.botaoSecundarioTexto}>Ver hidratação detalhada</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.medidorCard}>
-        <View style={styles.linhaStatus}>
-          <View style={styles.medidorTituloBox}>
-            <Text style={styles.painelLabelDestaque}>Medidor padrão</Text>
-            <Text style={styles.medidorTitulo}>
-              {medidasRestantes > 0 ? `${medidasRestantes} ${tipoMedida}${medidasRestantes > 1 ? "s" : ""} restantes` : "Meta concluída"}
-            </Text>
-          </View>
-          <Text style={styles.medidorResumo}>
-            {hidratacao.consumidoMl}/{metaAguaMl || "--"} ml
-          </Text>
-        </View>
-
-        <View style={styles.medidasGrid}>
-          {MEDIDAS_AGUA.map((medida) => {
-            const selecionada = medida === hidratacao.medidaPadraoMl;
-            return (
-              <Pressable
-                key={medida}
-                onPress={() => selecionarMedidaAgua(medida)}
-                style={[styles.medidaOpcao, selecionada && styles.medidaOpcaoAtiva]}
-              >
-                <Text style={[styles.medidaTexto, selecionada && styles.medidaTextoAtivo]}>
-                  {medida >= 1000 ? `${medida / 1000} L` : `${medida} ml`}
-                </Text>
-              </Pressable>
-            );
-          })}
         </View>
 
         <View style={styles.barraAgua}>
           <View style={[styles.barraAguaInterna, { width: `${progressoAgua}%` }]} />
         </View>
 
-        <Text style={styles.feedbackTexto}>
-          {medidasTotais > 0
-            ? `Sua meta equivale a ${medidasTotais} ${tipoMedida}${medidasTotais > 1 ? "s" : ""} de ${hidratacao.medidaPadraoMl} ml.`
-            : "Calcule a hidratação para ver a quantidade de copos."}
-        </Text>
+        {metaAguaMl > 0 ? (
+          <>
+            <View style={styles.hidratacaoResumoLinha}>
+              <Text style={styles.feedbackTexto}>{hidratacao.consumidoMl}/{metaAguaMl} ml consumidos</Text>
+              <Text style={styles.feedbackTexto}>{medidasRestantes} {tipoMedida}{medidasRestantes === 1 ? "" : "s"} restantes</Text>
+            </View>
 
-        <Pressable
-          style={[styles.botaoRegistrarAgua, metaAguaMl <= 0 && styles.botaoDesabilitado]}
-          onPress={registrarConsumoAgua}
-          disabled={metaAguaMl <= 0}
-        >
-          <Text style={styles.botaoPrimarioTexto}>
-            Registrar {tipoMedida} de {hidratacao.medidaPadraoMl >= 1000 ? `${hidratacao.medidaPadraoMl / 1000} L` : `${hidratacao.medidaPadraoMl} ml`}
-          </Text>
-        </Pressable>
+            <View style={styles.acoesLinha}>
+              <Pressable style={styles.botaoPrimario} onPress={registrarConsumoAgua}>
+                <Text style={styles.botaoPrimarioTexto}>
+                  Registrar {hidratacao.medidaPadraoMl >= 1000 ? `${hidratacao.medidaPadraoMl / 1000} L` : `${hidratacao.medidaPadraoMl} ml`}
+                </Text>
+              </Pressable>
+              <Pressable style={styles.botaoSecundario} onPress={() => navigation.navigate("Hidratacao")}>
+                <Text style={styles.botaoSecundarioTexto}>Ver detalhes</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.feedbackTexto}>Complete seus dados para calcular sua meta de água.</Text>
+            <Pressable style={styles.botaoDetalheAgua} onPress={() => navigation.navigate("Hidratacao")}>
+              <Text style={styles.botaoSecundarioTexto}>Calcular hidratação</Text>
+            </Pressable>
+          </>
+        )}
       </View>
 
       <View style={styles.linhaTitulo}>
@@ -614,6 +416,12 @@ const criarStyles = (colors: AppColors) => StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     marginTop: 10,
+  },
+  hidratacaoResumoLinha: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
   },
   medidorCard: {
     backgroundColor: colors.surface,

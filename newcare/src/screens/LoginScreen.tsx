@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, TextInput, Alert, Text, StyleSheet, Image } from "react-native";
+import { View, TextInput, Alert, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
 import { StackScreenProps } from "@react-navigation/stack";
 import { useApp } from "../context/AppContext";
 import { Botao } from "../components/Botao";
@@ -60,11 +60,13 @@ export function LoginScreen({ navigation }: Props) {
       <Botao titulo="Entrar" onPress={entrar} carregando={carregando} />
       <View style={styles.cadastroArea}>
         <Text style={styles.cadastroTexto}>Ainda não personalizou o app?</Text>
-        <Botao
-          titulo="Não tenho cadastro"
+        <TouchableOpacity
           onPress={() => navigation.navigate("Cadastro")}
-          variante="secundario"
-        />
+          accessibilityRole="button"
+          accessibilityLabel="Ir para o cadastro"
+        >
+          <Text style={styles.cadastroLink}>Criar cadastro</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -118,13 +120,20 @@ const criarStyles = (colors: AppColors) => StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
   },
   cadastroArea: {
-    gap: 10,
+    alignItems: "center",
+    gap: 6,
     marginTop: 18,
   },
   cadastroTexto: {
     color: colors.muted,
     fontSize: 13,
     fontWeight: "700",
+    textAlign: "center",
+  },
+  cadastroLink: {
+    color: colors.primary,
+    fontSize: 15,
+    fontWeight: "900",
     textAlign: "center",
   },
 });

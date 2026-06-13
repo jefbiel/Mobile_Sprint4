@@ -1,27 +1,35 @@
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Botao } from "../components/Botao";
 import { BrandHeader } from "../components/BrandHeader";
 import { useApp } from "../context/AppContext";
-import { CategoriaMissao } from "../types";
 import { AppColors, Colors, PaletaAcessibilidadeId, paletasAcessibilidade } from "../../constants/theme";
 
-const areas = [CategoriaMissao.Mental, CategoriaMissao.Fisica, CategoriaMissao.Lazer, CategoriaMissao.Sono];
-const tempos = [10, 15, 30];
+const niveisAtividade = [
+  { label: "Baixo", valor: "baixo" },
+  { label: "Moderado", valor: "moderado" },
+  { label: "Alto", valor: "alto" },
+] as const;
+
+function numero(valor: string) {
+  return Number(valor.replace(",", "."));
+}
 
 export function ConfiguracoesScreen() {
-  const { atualizarPaletaAcessibilidade, atualizarPerfil, colors, logout, usuario } = useApp();
+  const { atualizarPaletaAcessibilidade, atualizarPerfil, colors, hidratacao, logout, salvarMetaHidratacao, usuario } = useApp();
   const styles = criarStyles(colors);
   const [nome, setNome] = useState(usuario?.nome ?? "");
   const [email, setEmail] = useState(usuario?.email ?? "");
   const [senha, setSenha] = useState("");
-  const [areaDominante, setAreaDominante] = useState(usuario?.areaDominante ?? CategoriaMissao.Mental);
-  const [tempoDiario, setTempoDiario] = useState(usuario?.perfil?.tempoDiario ?? 15);
-  const [metaDiaria, setMetaDiaria] = useState(String(usuario?.preferencias.metaDiaria ?? 3));
-  const [notificacoes, setNotificacoes] = useState(usuario?.preferencias.notificacoes ?? true);
-  const [lembreteHorario, setLembreteHorario] = useState(usuario?.preferencias.lembreteHorario ?? "08:00");
   const [paleta, setPaleta] = useState(usuario?.preferencias.paletaAcessibilidade ?? "auroraHealth");
+  const [peso, setPeso] = useState(String(hidratacao.dadosSaude?.pesoKg ?? ""));
+  const [altura, setAltura] = useState(String(hidratacao.dadosSaude?.alturaCm ?? ""));
+  const [idade, setIdade] = useState(String(hidratacao.dadosSaude?.idade ?? ""));
+  const [nivelAtividade, setNivelAtividade] = useState<"baixo" | "moderado" | "alto">(
+    hidratacao.dadosSaude?.nivelAtividade ?? "moderado"
+  );
+  const [metaHidratacao, setMetaHidratacao] = useState(String(hidratacao.metaMl ?? ""));
 
   useEffect(() => {
     if (!usuario) return;
@@ -34,29 +42,63 @@ export function ConfiguracoesScreen() {
   }
 
   async function salvar() {
-    const meta = Number(metaDiaria);
+    if (!usuario) return;
+
     if (!nome.trim() || !email.includes("@")) {
       Alert.alert("Dados inválidos", "Informe nome e e-mail válidos.");
       return;
     }
 
-    if (!Number.isInteger(meta) || meta < 1 || meta > 12) {
-      Alert.alert("Meta inválida", "Use uma meta entre 1 e 12 missões.");
-      return;
+    const querSalvarSaude = Boolean(
+      peso.trim() ||
+      altura.trim() ||
+      idade.trim() ||
+      metaHidratacao.trim() ||
+      hidratacao.dadosSaude ||
+      hidratacao.metaMl
+    );
+    const pesoKg = numero(peso);
+    const alturaCm = numero(altura);
+    const idadeAnos = numero(idade);
+    const metaMl = numero(metaHidratacao);
+
+    if (querSalvarSaude) {
+      if (!Number.isFinite(pesoKg) || pesoKg <= 0 || !Number.isFinite(alturaCm) || alturaCm <= 0 || !Number.isFinite(idadeAnos) || idadeAnos <= 0) {
+        Alert.alert("Preferências de saúde", "Informe peso, altura e idade válidos.");
+        return;
+      }
+
+      if (!Number.isFinite(metaMl) || metaMl <= 0) {
+        Alert.alert("Meta de hidratação", "Informe uma meta de hidratação válida em ml.");
+        return;
+      }
     }
 
     await atualizarPerfil({
       nome: nome.trim(),
       email: email.trim().toLowerCase(),
-      areaDominante,
-      tempoDiario,
+      areaDominante: usuario.areaDominante,
+      tempoDiario: usuario.perfil?.tempoDiario,
       preferencias: {
-        notificacoes,
-        lembreteHorario,
-        metaDiaria: meta,
+        ...usuario.preferencias,
         paletaAcessibilidade: paleta,
       },
     });
+
+    if (querSalvarSaude) {
+      await salvarMetaHidratacao(
+        {
+          pesoKg,
+          alturaCm,
+          idade: idadeAnos,
+          nivelAtividade,
+          temperaturaC: hidratacao.dadosSaude?.temperaturaC ?? 25,
+          umidadePercentual: hidratacao.dadosSaude?.umidadePercentual ?? 62,
+        },
+        Math.round(metaMl)
+      );
+    }
+
     Alert.alert("Configurações salvas", senha ? "Senha registrada para alteração futura." : "Preferências atualizadas.");
   }
 
@@ -95,37 +137,27 @@ export function ConfiguracoesScreen() {
           })}
         </View>
 
-        <Text style={styles.label}>Área dominante</Text>
+        <Text style={styles.label}>Preferências de saúde</Text>
+        <View style={styles.linha}>
+          <TextInput style={styles.inputFlex} placeholder="Peso kg" placeholderTextColor={colors.muted} value={peso} onChangeText={setPeso} keyboardType="numeric" />
+          <TextInput style={styles.inputFlex} placeholder="Altura cm" placeholderTextColor={colors.muted} value={altura} onChangeText={setAltura} keyboardType="numeric" />
+        </View>
+        <View style={styles.linha}>
+          <TextInput style={styles.inputFlex} placeholder="Idade" placeholderTextColor={colors.muted} value={idade} onChangeText={setIdade} keyboardType="numeric" />
+          <TextInput style={styles.inputFlex} placeholder="Meta água ml" placeholderTextColor={colors.muted} value={metaHidratacao} onChangeText={setMetaHidratacao} keyboardType="numeric" />
+        </View>
+        <Text style={styles.labelMenor}>Nível de atividade</Text>
         <View style={styles.chips}>
-          {areas.map((area) => (
-            <TouchableOpacity key={area} style={[styles.chip, areaDominante === area && styles.chipAtivo]} onPress={() => setAreaDominante(area)}>
-              <Text style={[styles.chipTexto, areaDominante === area && styles.chipTextoAtivo]}>{area}</Text>
+          {niveisAtividade.map((item) => (
+            <TouchableOpacity
+              key={item.valor}
+              style={[styles.chip, nivelAtividade === item.valor && styles.chipAtivo]}
+              onPress={() => setNivelAtividade(item.valor)}
+            >
+              <Text style={[styles.chipTexto, nivelAtividade === item.valor && styles.chipTextoAtivo]}>{item.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
-
-        <Text style={styles.label}>Tempo diário de missões</Text>
-        <View style={styles.chips}>
-          {tempos.map((tempo) => (
-            <TouchableOpacity key={tempo} style={[styles.chip, tempoDiario === tempo && styles.chipAtivo]} onPress={() => setTempoDiario(tempo)}>
-              <Text style={[styles.chipTexto, tempoDiario === tempo && styles.chipTextoAtivo]}>{tempo} min</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Text style={styles.label}>Meta diária</Text>
-        <TextInput style={styles.input} placeholder="3" placeholderTextColor={colors.muted} value={metaDiaria} onChangeText={setMetaDiaria} keyboardType="numeric" />
-
-        <View style={styles.switchLinha}>
-          <View>
-            <Text style={styles.itemTitulo}>Notificações</Text>
-            <Text style={styles.itemTexto}>Ativar lembretes de missões</Text>
-          </View>
-          <Switch value={notificacoes} onValueChange={setNotificacoes} />
-        </View>
-
-        <Text style={styles.label}>Horário dos lembretes</Text>
-        <TextInput style={styles.input} placeholder="08:00" placeholderTextColor={colors.muted} value={lembreteHorario} onChangeText={setLembreteHorario} />
 
         <Botao titulo="Salvar configurações" onPress={salvar} />
         <View style={styles.espaco} />
@@ -141,11 +173,14 @@ const criarStyles = (colors: AppColors) => StyleSheet.create({
   content: { gap: 10, padding: 20, paddingBottom: 28, paddingTop: 16 },
   titulo: { color: colors.text, fontSize: 28, fontWeight: "900", marginBottom: 8 },
   input: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 14, borderWidth: 1, color: colors.text, minHeight: 50, paddingHorizontal: 14 },
+  inputFlex: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 14, borderWidth: 1, color: colors.text, flex: 1, minHeight: 50, paddingHorizontal: 14 },
   label: { color: colors.text, fontWeight: "900", marginTop: 8 },
+  labelMenor: { color: colors.text, fontWeight: "900", marginTop: 2 },
+  linha: { flexDirection: "row", gap: 10 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 9 },
   chipAtivo: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
-  chipTexto: { color: colors.muted, fontWeight: "800", textTransform: "capitalize" },
+  chipTexto: { color: colors.muted, fontWeight: "900" },
   chipTextoAtivo: { color: colors.primary },
   paletasGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "space-between" },
   paletaBotao: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 14, borderWidth: 1, minHeight: 112, padding: 12, width: "48%" },
@@ -154,8 +189,5 @@ const criarStyles = (colors: AppColors) => StyleSheet.create({
   amostraCor: { borderColor: colors.border, borderRadius: 999, borderWidth: 1, height: 20, width: 20 },
   paletaNome: { color: colors.text, fontSize: 14, fontWeight: "900", lineHeight: 17 },
   paletaResumo: { color: colors.primary, fontSize: 12, fontWeight: "800", marginTop: 4 },
-  switchLinha: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 14, borderWidth: 1, flexDirection: "row", justifyContent: "space-between", padding: 14 },
-  itemTitulo: { color: colors.text, fontWeight: "900" },
-  itemTexto: { color: colors.muted, marginTop: 2 },
   espaco: { height: 2 },
 });

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { MISSOES, gerarMissoesPersonalizadas } from "../data/missoes";
-import { AtualizarPerfilDados, CadastroDados, CategoriaMissao, Conquista, HidratacaoDiaria, Missao, NovaMissaoDados, OnboardingPerfil, PreferenciasUsuario, StatusMissao, TipoMissao, Usuario } from "../types";
+import { AtualizarPerfilDados, CadastroDados, CategoriaMissao, Conquista, DadosSaudeHidratacao, HidratacaoDiaria, Missao, NovaMissaoDados, OnboardingPerfil, PreferenciasUsuario, StatusMissao, TipoMissao, Usuario } from "../types";
 import { buscar, remover, salvar } from "../services/storage";
 import { Colors, PALETA_PADRAO, PaletaAcessibilidadeId, AppColors } from "../../constants/theme";
 
@@ -23,6 +23,7 @@ interface ContextData {
   escolherAvatar: (avatarId: string) => Promise<void>;
   adicionarMissao: (missao: NovaMissaoDados) => Promise<void>;
   selecionarMedidaAgua: (medidaMl: number) => Promise<void>;
+  salvarMetaHidratacao: (dadosSaude: DadosSaudeHidratacao, metaMl: number) => Promise<void>;
   registrarAguaBebida: (metaMl: number) => Promise<HidratacaoDiaria>;
   concluirOnboarding: (perfil: OnboardingPerfil) => Promise<void>;
   logout: () => Promise<void>;
@@ -58,6 +59,9 @@ function normalizarHidratacao(hidratacao?: HidratacaoDiaria | null): HidratacaoD
     return {
       ...hidratacaoPadrao(),
       medidaPadraoMl: hidratacao?.medidaPadraoMl ?? 250,
+      metaMl: hidratacao?.metaMl,
+      dadosSaude: hidratacao?.dadosSaude,
+      calculadoEm: hidratacao?.calculadoEm,
     };
   }
 
@@ -402,12 +406,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await salvar("hidratacao", atualizada);
   }
 
+  async function salvarMetaHidratacao(dadosSaude: DadosSaudeHidratacao, metaMl: number) {
+    const atualizada: HidratacaoDiaria = {
+      ...normalizarHidratacao(hidratacao),
+      dadosSaude,
+      metaMl,
+      calculadoEm: Date.now(),
+      metaBatida: hidratacao.consumidoMl >= metaMl,
+    };
+
+    setHidratacao(atualizada);
+    await salvar("hidratacao", atualizada);
+  }
+
   async function registrarAguaBebida(metaMl: number) {
     const atual = normalizarHidratacao(hidratacao);
     const consumidoMl = atual.consumidoMl + atual.medidaPadraoMl;
     const bateuMetaAgora = !atual.metaBatida && metaMl > 0 && consumidoMl >= metaMl;
     const atualizada: HidratacaoDiaria = {
       ...atual,
+      metaMl,
       consumidoMl,
       metaBatida: atual.metaBatida || bateuMetaAgora,
     };
@@ -469,6 +487,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         escolherAvatar,
         adicionarMissao,
         selecionarMedidaAgua,
+        salvarMetaHidratacao,
         registrarAguaBebida,
         concluirOnboarding,
         logout,

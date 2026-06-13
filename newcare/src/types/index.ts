@@ -73,6 +73,18 @@ export interface HidratacaoDiaria {
   medidaPadraoMl: number;
   consumidoMl: number;
   metaBatida: boolean;
+  metaMl?: number;
+  dadosSaude?: DadosSaudeHidratacao;
+  calculadoEm?: number;
+}
+
+export interface DadosSaudeHidratacao {
+  pesoKg: number;
+  alturaCm: number;
+  idade: number;
+  nivelAtividade: "baixo" | "moderado" | "alto";
+  temperaturaC: number;
+  umidadePercentual: number;
 }
 
 export interface Missao {

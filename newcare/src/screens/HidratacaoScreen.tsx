@@ -6,19 +6,67 @@ import { AppColors } from "../../constants/theme";
 import { Botao } from "../components/Botao";
 
 const medidas = [250, 300, 500, 750, 1000];
+const niveisAtividade = [
+  { label: "Baixo", valor: "baixo", adicionalMl: 0 },
+  { label: "Moderado", valor: "moderado", adicionalMl: 350 },
+  { label: "Alto", valor: "alto", adicionalMl: 700 },
+] as const;
 
 export function HidratacaoScreen() {
-  const { colors, hidratacao, registrarAguaBebida, selecionarMedidaAgua } = useApp();
+  const { colors, hidratacao, registrarAguaBebida, salvarMetaHidratacao, selecionarMedidaAgua } = useApp();
   const styles = criarStyles(colors);
-  const [peso, setPeso] = useState("70");
-  const [temperatura, setTemperatura] = useState("25");
-  const [umidade] = useState("62");
+  const [peso, setPeso] = useState(String(hidratacao.dadosSaude?.pesoKg ?? ""));
+  const [altura, setAltura] = useState(String(hidratacao.dadosSaude?.alturaCm ?? ""));
+  const [idade, setIdade] = useState(String(hidratacao.dadosSaude?.idade ?? ""));
+  const [temperatura, setTemperatura] = useState(String(hidratacao.dadosSaude?.temperaturaC ?? 25));
+  const [umidade, setUmidade] = useState(String(hidratacao.dadosSaude?.umidadePercentual ?? 62));
+  const [nivelAtividade, setNivelAtividade] = useState<"baixo" | "moderado" | "alto">(
+    hidratacao.dadosSaude?.nivelAtividade ?? "moderado"
+  );
   const pesoKg = Number(peso.replace(",", "."));
+  const alturaCm = Number(altura.replace(",", "."));
+  const idadeAnos = Number(idade.replace(",", "."));
   const temp = Number(temperatura.replace(",", "."));
-  const metaMl = Number.isFinite(pesoKg) && pesoKg > 0 ? Math.round(pesoKg * 35 + Math.max(0, temp - 24) * 80) : 0;
+  const umidadePercentual = Number(umidade.replace(",", "."));
+  const atividade = niveisAtividade.find((item) => item.valor === nivelAtividade) ?? niveisAtividade[1];
+  const metaMl = hidratacao.metaMl ?? 0;
   const restanteMl = Math.max(0, metaMl - hidratacao.consumidoMl);
   const coposRestantes = metaMl > 0 ? Math.ceil(restanteMl / hidratacao.medidaPadraoMl) : 0;
   const progresso = metaMl > 0 ? Math.min((hidratacao.consumidoMl / metaMl) * 100, 100) : 0;
+
+  function calcularMeta() {
+    if (!Number.isFinite(pesoKg) || pesoKg <= 0) return 0;
+
+    const base = pesoKg * 35;
+    const alturaAjuste = Number.isFinite(alturaCm) && alturaCm > 0 ? Math.max(0, alturaCm - 160) * 3 : 0;
+    const idadeAjuste = Number.isFinite(idadeAnos) && idadeAnos >= 60 ? -150 : 0;
+    const calorAjuste = Number.isFinite(temp) ? Math.max(0, temp - 24) * 80 : 0;
+    const umidadeAjuste = Number.isFinite(umidadePercentual) && umidadePercentual < 35 ? 150 : 0;
+
+    return Math.max(1200, Math.round(base + alturaAjuste + idadeAjuste + calorAjuste + umidadeAjuste + atividade.adicionalMl));
+  }
+
+  async function calcularESalvar() {
+    const calculada = calcularMeta();
+
+    if (!Number.isFinite(pesoKg) || pesoKg <= 0 || !Number.isFinite(alturaCm) || alturaCm <= 0 || !Number.isFinite(idadeAnos) || idadeAnos <= 0) {
+      Alert.alert("Complete seus dados", "Informe peso, altura e idade para calcular a meta de água.");
+      return;
+    }
+
+    await salvarMetaHidratacao(
+      {
+        pesoKg,
+        alturaCm,
+        idade: idadeAnos,
+        nivelAtividade,
+        temperaturaC: Number.isFinite(temp) ? temp : 25,
+        umidadePercentual: Number.isFinite(umidadePercentual) ? umidadePercentual : 62,
+      },
+      calculada
+    );
+    Alert.alert("Meta calculada", `Sua meta diária foi definida em ${(calculada / 1000).toFixed(2)} L.`);
+  }
 
   async function registrar() {
     if (metaMl <= 0) {
@@ -33,7 +81,7 @@ export function HidratacaoScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.titulo}>Hidratação Inteligente</Text>
-        <Text style={styles.subtitulo}>Detalhes do consumo de água e simulação IoT.</Text>
+        <Text style={styles.subtitulo}>Preencha seus dados para calcular e salvar sua meta diária.</Text>
 
         <View style={styles.card}>
           <Text style={styles.valor}>{metaMl ? `${(metaMl / 1000).toFixed(2)} L` : "--"}</Text>
@@ -44,15 +92,36 @@ export function HidratacaoScreen() {
 
         <View style={styles.linha}>
           <TextInput style={styles.input} placeholder="Peso kg" placeholderTextColor={colors.muted} value={peso} onChangeText={setPeso} keyboardType="numeric" />
+          <TextInput style={styles.input} placeholder="Altura cm" placeholderTextColor={colors.muted} value={altura} onChangeText={setAltura} keyboardType="numeric" />
+        </View>
+
+        <View style={styles.linha}>
+          <TextInput style={styles.input} placeholder="Idade" placeholderTextColor={colors.muted} value={idade} onChangeText={setIdade} keyboardType="numeric" />
           <TextInput style={styles.input} placeholder="Temperatura" placeholderTextColor={colors.muted} value={temperatura} onChangeText={setTemperatura} keyboardType="numeric" />
+        </View>
+
+        <View style={styles.linha}>
+          <TextInput style={styles.input} placeholder="Umidade %" placeholderTextColor={colors.muted} value={umidade} onChangeText={setUmidade} keyboardType="numeric" />
+        </View>
+
+        <Text style={styles.labelForte}>Atividade física</Text>
+        <View style={styles.chips}>
+          {niveisAtividade.map((item) => (
+            <TouchableOpacity key={item.valor} style={[styles.chip, nivelAtividade === item.valor && styles.chipAtivo]} onPress={() => setNivelAtividade(item.valor)}>
+              <Text style={[styles.chipTexto, nivelAtividade === item.valor && styles.chipTextoAtivo]}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         <View style={styles.grid}>
           <View style={styles.info}><Text style={styles.infoValor}>{temperatura}°C</Text><Text style={styles.infoLabel}>Temperatura</Text></View>
-          <View style={styles.info}><Text style={styles.infoValor}>{umidade}%</Text><Text style={styles.infoLabel}>Umidade</Text></View>
+          <View style={styles.info}><Text style={styles.infoValor}>{umidade || "--"}%</Text><Text style={styles.infoLabel}>Umidade</Text></View>
           <View style={styles.info}><Text style={styles.infoValor}>online</Text><Text style={styles.infoLabel}>Sensor</Text></View>
           <View style={styles.info}><Text style={styles.infoValor}>agora</Text><Text style={styles.infoLabel}>Atualização</Text></View>
         </View>
+
+        <Botao titulo="Calcular e salvar meta" onPress={calcularESalvar} />
+        <View style={styles.espaco} />
 
         <Text style={styles.labelForte}>Medida padrão</Text>
         <View style={styles.chips}>
@@ -92,4 +161,5 @@ const criarStyles = (colors: AppColors) => StyleSheet.create({
   chipAtivo: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
   chipTexto: { color: colors.muted, fontWeight: "900" },
   chipTextoAtivo: { color: colors.primary },
+  espaco: { height: 12 },
 });

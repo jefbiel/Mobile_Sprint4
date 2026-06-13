@@ -92,16 +92,21 @@ export const MISSOES: Missao[] = [
 
 export function gerarMissoesPersonalizadas(foco: CategoriaMissao, tempoDiario: number, atividadesSelecionadas: string[] = []) {
   if (atividadesSelecionadas.length > 0) {
-    const atividades = ATIVIDADES_ONBOARDING[foco].filter((atividade) =>
-      atividadesSelecionadas.includes(atividade.id)
-    );
+    const atividades = Object.entries(ATIVIDADES_ONBOARDING)
+      .flatMap(([categoria, atividadesDaCategoria]) =>
+        atividadesDaCategoria.map((atividade) => ({
+          ...atividade,
+          categoria: categoria as CategoriaMissao,
+        }))
+      )
+      .filter((atividade) => atividadesSelecionadas.includes(atividade.id));
     const duracaoBase = Math.max(5, Math.floor(tempoDiario / Math.max(1, atividades.length)));
 
     return atividades.map((atividade, index) => ({
       id: `onboarding-${atividade.id}`,
       titulo: atividade.titulo,
       descricao: atividade.descricao,
-      categoria: foco,
+      categoria: atividade.categoria,
       tipo: atividade.tipo,
       recompensaXp: Math.min(80, Math.max(20, duracaoBase * 4)),
       recompensaMoedas: Math.min(25, Math.max(5, Math.ceil(duracaoBase / 2))),
