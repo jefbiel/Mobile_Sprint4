@@ -205,6 +205,8 @@ Não há credenciais expostas no código. A URL de tempo real pode ser configura
 
 ### Vídeo demonstrativo
 
+Videodemonstração do app: https://youtu.be/qL4n6zWo8Os
+
 Roteiro sugerido para o vídeo:
 
 1. Abrir o servidor com `npm run realtime` e mostrar os sensores publicando no terminal.
