@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { StackScreenProps } from "@react-navigation/stack";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -8,8 +8,9 @@ import { useApp } from "../context/AppContext";
 import { CategoriaMissao, Missao } from "../types";
 import { AppColors, Colors, PaletaAcessibilidadeId, paletasAcessibilidade } from "../../constants/theme";
 import { RootStackParamList } from "../routes/types";
-import { ATIVIDADES_ONBOARDING, gerarMissoesPersonalizadas } from "../data/missoes";
-import { emailValido, LIMITE_EMAIL, LIMITE_NOME, LIMITE_SENHA } from "../utils/validacoes";
+import { ATIVIDADES_ONBOARDING, calcularRecompensasPorDuracao, gerarMissoesPersonalizadas } from "../data/missoes";
+import { emailValido, LIMITE_EMAIL, LIMITE_NOME, LIMITE_SENHA, normalizarEmail } from "../utils/validacoes";
+import { avataresIniciais } from "./EscolhaAvatarScreen";
 
 type Props = StackScreenProps<RootStackParamList, "Cadastro">;
 
@@ -20,7 +21,7 @@ const areas = [
   { label: "Sono", valor: CategoriaMissao.Sono },
 ];
 const TEMPO_DIARIO_PADRAO = 15;
-const etapas = ["Acessibilidade", "Conta", "Área", "Hábitos", "Resumo"];
+const etapas = ["Acessibilidade", "Conta", "Área", "Hábitos", "Resumo", "Avatar"];
 
 export function CadastroScreen({ navigation }: Props) {
   const { cadastrar, colors, definirPaletaTemporaria } = useApp();
@@ -42,6 +43,10 @@ export function CadastroScreen({ navigation }: Props) {
   });
   const tempoDiario = TEMPO_DIARIO_PADRAO;
   const [habitosPreview, setHabitosPreview] = useState<Missao[]>([]);
+  const [avatarSelecionado, setAvatarSelecionado] = useState(avataresIniciais[0].id);
+  const alertaNomeAberto = useRef(false);
+  const alertaEmailAberto = useRef(false);
+  const alertaSenhaAberto = useRef(false);
   const [carregando, setCarregando] = useState(false);
   const [etapaAtual, setEtapaAtual] = useState(0);
   const ultimaEtapa = etapaAtual === etapas.length - 1;
@@ -55,6 +60,60 @@ export function CadastroScreen({ navigation }: Props) {
   function selecionarPaleta(paletaAcessibilidade: PaletaAcessibilidadeId) {
     setPaleta(paletaAcessibilidade);
     definirPaletaTemporaria(paletaAcessibilidade);
+  }
+
+  function atualizarNomeComLimite(valor: string, atualizar: (nomeLimitado: string) => void) {
+    if (valor.length <= LIMITE_NOME) {
+      atualizar(valor);
+      return;
+    }
+
+    atualizar(valor.slice(0, LIMITE_NOME));
+
+    if (!alertaNomeAberto.current) {
+      alertaNomeAberto.current = true;
+      Alert.alert(
+        "Nome muito longo",
+        `O nome deve ter no máximo ${LIMITE_NOME} caracteres.`,
+        [{ text: "OK", onPress: () => { alertaNomeAberto.current = false; } }]
+      );
+    }
+  }
+
+  function atualizarEmailComLimite(valor: string, atualizar: (emailLimitado: string) => void) {
+    if (valor.length <= LIMITE_EMAIL) {
+      atualizar(valor);
+      return;
+    }
+
+    atualizar(valor.slice(0, LIMITE_EMAIL));
+
+    if (!alertaEmailAberto.current) {
+      alertaEmailAberto.current = true;
+      Alert.alert(
+        "Email muito longo",
+        `O email deve ter no máximo ${LIMITE_EMAIL} caracteres.`,
+        [{ text: "OK", onPress: () => { alertaEmailAberto.current = false; } }]
+      );
+    }
+  }
+
+  function atualizarSenhaComLimite(valor: string, atualizar: (senhaLimitada: string) => void) {
+    if (valor.length <= LIMITE_SENHA) {
+      atualizar(valor);
+      return;
+    }
+
+    atualizar(valor.slice(0, LIMITE_SENHA));
+
+    if (!alertaSenhaAberto.current) {
+      alertaSenhaAberto.current = true;
+      Alert.alert(
+        "Senha muito longa",
+        `A senha não deve ultrapassar ${LIMITE_SENHA} dígitos.`,
+        [{ text: "OK", onPress: () => { alertaSenhaAberto.current = false; } }]
+      );
+    }
   }
 
   function validarConta() {
@@ -193,7 +252,7 @@ export function CadastroScreen({ navigation }: Props) {
 
   function salvarEdicaoDados() {
     const nomeLimpo = nomeEdicao.trim();
-    const emailLimpo = emailEdicao.trim().toLowerCase();
+    const emailLimpo = normalizarEmail(emailEdicao);
 
     if (nomeLimpo.length < 2) {
       Alert.alert("Nome inválido", "Informe um nome com pelo menos 2 caracteres.");
@@ -212,6 +271,7 @@ export function CadastroScreen({ navigation }: Props) {
 
     setNome(nomeLimpo);
     setEmail(emailLimpo);
+    setEmailEdicao(emailLimpo);
     setEditandoDados(false);
   }
 
@@ -221,6 +281,7 @@ export function CadastroScreen({ navigation }: Props) {
 
   function atualizarDuracaoHabito(id: string, duracaoMinutos: number) {
     const duracaoSegura = Math.min(45, Math.max(5, Math.round(duracaoMinutos)));
+    const recompensas = calcularRecompensasPorDuracao(duracaoSegura);
 
     setHabitosPreview((atuais) =>
       atuais.map((missao) =>
@@ -228,8 +289,7 @@ export function CadastroScreen({ navigation }: Props) {
           ? {
               ...missao,
               duracaoMinutos: duracaoSegura,
-              recompensaXp: Math.min(80, Math.max(15, duracaoSegura * 4)),
-              recompensaMoedas: Math.min(25, Math.max(4, Math.ceil(duracaoSegura / 2))),
+              ...recompensas,
             }
           : missao
       )
@@ -249,6 +309,7 @@ export function CadastroScreen({ navigation }: Props) {
         foco,
         tempoDiario,
         atividadesSelecionadas: todasAtividadesSelecionadas,
+        avatarId: avatarSelecionado,
         missoesPersonalizadas: habitosPreview,
       });
     } catch (error) {
@@ -304,10 +365,10 @@ export function CadastroScreen({ navigation }: Props) {
           {etapaAtual === 1 && (
             <View style={styles.card}>
               <Text style={styles.label}>Dados da conta</Text>
-              <TextInput style={styles.input} placeholder="Nome" placeholderTextColor={colors.muted} value={nome} onChangeText={setNome} maxLength={LIMITE_NOME} />
-              <TextInput style={styles.input} placeholder="Email" placeholderTextColor={colors.muted} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" maxLength={LIMITE_EMAIL} />
-              <TextInput style={styles.input} placeholder="Senha" placeholderTextColor={colors.muted} value={senha} onChangeText={setSenha} secureTextEntry maxLength={LIMITE_SENHA} />
-              <TextInput style={styles.input} placeholder="Confirmar senha" placeholderTextColor={colors.muted} value={confirmacao} onChangeText={setConfirmacao} secureTextEntry maxLength={LIMITE_SENHA} />
+              <TextInput style={styles.input} placeholder="Nome" placeholderTextColor={colors.muted} value={nome} onChangeText={(valor) => atualizarNomeComLimite(valor, setNome)} />
+              <TextInput style={styles.input} placeholder="Email" placeholderTextColor={colors.muted} value={email} onChangeText={(valor) => atualizarEmailComLimite(valor, setEmail)} keyboardType="email-address" autoCapitalize="none" />
+              <TextInput style={styles.input} placeholder="Senha" placeholderTextColor={colors.muted} value={senha} onChangeText={(valor) => atualizarSenhaComLimite(valor, setSenha)} secureTextEntry />
+              <TextInput style={styles.input} placeholder="Confirmar senha" placeholderTextColor={colors.muted} value={confirmacao} onChangeText={(valor) => atualizarSenhaComLimite(valor, setConfirmacao)} secureTextEntry />
             </View>
           )}
 
@@ -416,9 +477,9 @@ export function CadastroScreen({ navigation }: Props) {
                 {editandoDados ? (
                   <View style={styles.card}>
                     <Text style={styles.labelCampo}>Nome</Text>
-                    <TextInput style={styles.input} placeholder="Nome" placeholderTextColor={colors.muted} value={nomeEdicao} onChangeText={setNomeEdicao} maxLength={LIMITE_NOME} />
+                    <TextInput style={styles.input} placeholder="Nome" placeholderTextColor={colors.muted} value={nomeEdicao} onChangeText={(valor) => atualizarNomeComLimite(valor, setNomeEdicao)} />
                     <Text style={styles.labelCampo}>E-mail</Text>
-                    <TextInput style={styles.input} placeholder="Email" placeholderTextColor={colors.muted} value={emailEdicao} onChangeText={setEmailEdicao} keyboardType="email-address" autoCapitalize="none" maxLength={LIMITE_EMAIL} />
+                    <TextInput style={styles.input} placeholder="Email" placeholderTextColor={colors.muted} value={emailEdicao} onChangeText={(valor) => atualizarEmailComLimite(valor, setEmailEdicao)} keyboardType="email-address" autoCapitalize="none" />
                     <Botao titulo="Salvar dados" onPress={salvarEdicaoDados} />
                   </View>
                 ) : (
@@ -440,6 +501,30 @@ export function CadastroScreen({ navigation }: Props) {
               </View>
             </View>
           )}
+
+          {etapaAtual === 5 && (
+            <View>
+              <Text style={styles.label}>Escolha seu avatar</Text>
+              <Text style={styles.descricaoEtapa}>Ele representa sua evolução dentro do NewCare.</Text>
+              <View style={styles.grid}>
+                {avataresIniciais.map((avatar) => {
+                  const ativo = avatarSelecionado === avatar.id;
+
+                  return (
+                    <TouchableOpacity
+                      key={avatar.id}
+                      style={[styles.avatarCard, ativo && styles.avatarCardAtivo]}
+                      onPress={() => setAvatarSelecionado(avatar.id)}
+                    >
+                      <Text style={styles.avatarSimbolo}>{avatar.simbolo}</Text>
+                      <Text style={styles.avatarNome}>{avatar.nome}</Text>
+                      <Text style={styles.avatarFase}>{avatar.foco}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
         </ScrollView>
 
         <View style={styles.navegacao}>
@@ -448,7 +533,7 @@ export function CadastroScreen({ navigation }: Props) {
           </TouchableOpacity>
           <View style={styles.botaoAvancar}>
             <Botao
-              titulo={ultimaEtapa ? "Criar cadastro" : "Avançar"}
+              titulo={ultimaEtapa ? "Finalizar cadastro" : "Avançar"}
               onPress={avancar}
               carregando={carregando}
             />
@@ -503,6 +588,11 @@ const criarStyles = (colors: AppColors) => StyleSheet.create({
   atividadeDescricao: { color: colors.muted, fontSize: 11, fontWeight: "700", lineHeight: 14, marginTop: 5 },
   contadorAtividades: { color: colors.primary, fontSize: 12, fontWeight: "900", marginTop: 6, textAlign: "right" },
   mensagemOrientacao: { backgroundColor: colors.primarySoft, borderRadius: 10, color: colors.primary, fontSize: 12, fontWeight: "900", lineHeight: 16, marginTop: 6, padding: 8 },
+  avatarCard: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 14, borderWidth: 1, minHeight: 145, justifyContent: "center", padding: 12, width: "48%" },
+  avatarCardAtivo: { backgroundColor: colors.primarySoft, borderColor: colors.primary, borderWidth: 2 },
+  avatarSimbolo: { fontSize: 34, marginBottom: 10 },
+  avatarNome: { color: colors.text, fontSize: 15, fontWeight: "900", textAlign: "center" },
+  avatarFase: { color: colors.primary, fontWeight: "900", marginTop: 6 },
   habitosLista: { gap: 8 },
   habitoResumoCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 12, borderWidth: 1, padding: 12 },
   habitoTopo: { alignItems: "flex-start", flexDirection: "row", gap: 10, justifyContent: "space-between" },

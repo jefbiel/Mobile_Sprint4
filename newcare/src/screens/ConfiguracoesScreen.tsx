@@ -1,17 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Botao } from "../components/Botao";
 import { BrandHeader } from "../components/BrandHeader";
 import { useApp } from "../context/AppContext";
 import { AppColors, Colors, PaletaAcessibilidadeId, paletasAcessibilidade } from "../../constants/theme";
-import { emailValido, LIMITE_EMAIL, LIMITE_NOME, LIMITE_SENHA } from "../utils/validacoes";
-
-const niveisAtividade = [
-  { label: "Baixo", valor: "baixo" },
-  { label: "Moderado", valor: "moderado" },
-  { label: "Alto", valor: "alto" },
-] as const;
+import { emailValido, LIMITE_EMAIL, LIMITE_NOME, LIMITE_SENHA, normalizarEmail } from "../utils/validacoes";
 
 function numero(valor: string) {
   return Number(valor.replace(",", "."));
@@ -27,10 +21,8 @@ export function ConfiguracoesScreen() {
   const [peso, setPeso] = useState(String(hidratacao.dadosSaude?.pesoKg ?? ""));
   const [altura, setAltura] = useState(String(hidratacao.dadosSaude?.alturaCm ?? ""));
   const [idade, setIdade] = useState(String(hidratacao.dadosSaude?.idade ?? ""));
-  const [nivelAtividade, setNivelAtividade] = useState<"baixo" | "moderado" | "alto">(
-    hidratacao.dadosSaude?.nivelAtividade ?? "moderado"
-  );
   const [metaHidratacao, setMetaHidratacao] = useState(String(hidratacao.metaMl ?? ""));
+  const alertaSenhaAberto = useRef(false);
 
   useEffect(() => {
     if (!usuario) return;
@@ -40,6 +32,24 @@ export function ConfiguracoesScreen() {
   async function selecionarPaleta(paletaAcessibilidade: PaletaAcessibilidadeId) {
     setPaleta(paletaAcessibilidade);
     await atualizarPaletaAcessibilidade(paletaAcessibilidade);
+  }
+
+  function atualizarSenhaComLimite(valor: string) {
+    if (valor.length <= LIMITE_SENHA) {
+      setSenha(valor);
+      return;
+    }
+
+    setSenha(valor.slice(0, LIMITE_SENHA));
+
+    if (!alertaSenhaAberto.current) {
+      alertaSenhaAberto.current = true;
+      Alert.alert(
+        "Senha muito longa",
+        `A senha não deve ultrapassar ${LIMITE_SENHA} dígitos.`,
+        [{ text: "OK", onPress: () => { alertaSenhaAberto.current = false; } }]
+      );
+    }
   }
 
   async function salvar() {
@@ -77,7 +87,7 @@ export function ConfiguracoesScreen() {
 
     await atualizarPerfil({
       nome: nome.trim(),
-      email: email.trim().toLowerCase(),
+      email: normalizarEmail(email),
       areaDominante: usuario.areaDominante,
       tempoDiario: usuario.perfil?.tempoDiario,
       preferencias: {
@@ -92,7 +102,7 @@ export function ConfiguracoesScreen() {
           pesoKg,
           alturaCm,
           idade: idadeAnos,
-          nivelAtividade,
+          nivelAtividade: hidratacao.dadosSaude?.nivelAtividade ?? "moderado",
           temperaturaC: hidratacao.dadosSaude?.temperaturaC ?? 25,
           umidadePercentual: hidratacao.dadosSaude?.umidadePercentual ?? 62,
         },
@@ -112,7 +122,7 @@ export function ConfiguracoesScreen() {
         <Text style={styles.titulo}>Configurações</Text>
         <TextInput style={styles.input} placeholder="Nome" placeholderTextColor={colors.muted} value={nome} onChangeText={setNome} maxLength={LIMITE_NOME} />
         <TextInput style={styles.input} placeholder="Email" placeholderTextColor={colors.muted} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" maxLength={LIMITE_EMAIL} />
-        <TextInput style={styles.input} placeholder="Nova senha" placeholderTextColor={colors.muted} value={senha} onChangeText={setSenha} secureTextEntry maxLength={LIMITE_SENHA} />
+        <TextInput style={styles.input} placeholder="Nova senha" placeholderTextColor={colors.muted} value={senha} onChangeText={atualizarSenhaComLimite} secureTextEntry />
 
         <Text style={styles.label}>Cor de acessibilidade</Text>
         <View style={styles.paletasGrid}>
@@ -140,26 +150,25 @@ export function ConfiguracoesScreen() {
 
         <Text style={styles.label}>Preferências de saúde</Text>
         <View style={styles.linha}>
-          <TextInput style={styles.inputFlex} placeholder="Peso kg" placeholderTextColor={colors.muted} value={peso} onChangeText={setPeso} keyboardType="numeric" />
-          <TextInput style={styles.inputFlex} placeholder="Altura cm" placeholderTextColor={colors.muted} value={altura} onChangeText={setAltura} keyboardType="numeric" />
+          <View style={styles.campoFlex}>
+            <Text style={styles.campoLabel}>Peso (kg)</Text>
+            <TextInput style={styles.inputFlex} placeholder="Ex: 80" placeholderTextColor={colors.muted} value={peso} onChangeText={setPeso} keyboardType="numeric" />
+          </View>
+          <View style={styles.campoFlex}>
+            <Text style={styles.campoLabel}>Altura (cm)</Text>
+            <TextInput style={styles.inputFlex} placeholder="Ex: 178" placeholderTextColor={colors.muted} value={altura} onChangeText={setAltura} keyboardType="numeric" />
+          </View>
         </View>
         <View style={styles.linha}>
-          <TextInput style={styles.inputFlex} placeholder="Idade" placeholderTextColor={colors.muted} value={idade} onChangeText={setIdade} keyboardType="numeric" />
-          <TextInput style={styles.inputFlex} placeholder="Meta água ml" placeholderTextColor={colors.muted} value={metaHidratacao} onChangeText={setMetaHidratacao} keyboardType="numeric" />
+          <View style={styles.campoFlex}>
+            <Text style={styles.campoLabel}>Idade</Text>
+            <TextInput style={styles.inputFlex} placeholder="Ex: 21" placeholderTextColor={colors.muted} value={idade} onChangeText={setIdade} keyboardType="numeric" />
+          </View>
+          <View style={styles.campoFlex}>
+            <Text style={styles.campoLabel}>Meta diária (ml)</Text>
+            <TextInput style={styles.inputFlex} placeholder="Ex: 3284" placeholderTextColor={colors.muted} value={metaHidratacao} onChangeText={setMetaHidratacao} keyboardType="numeric" />
+          </View>
         </View>
-        <Text style={styles.labelMenor}>Nível de atividade</Text>
-        <View style={styles.chips}>
-          {niveisAtividade.map((item) => (
-            <TouchableOpacity
-              key={item.valor}
-              style={[styles.chip, nivelAtividade === item.valor && styles.chipAtivo]}
-              onPress={() => setNivelAtividade(item.valor)}
-            >
-              <Text style={[styles.chipTexto, nivelAtividade === item.valor && styles.chipTextoAtivo]}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
         <Botao titulo="Salvar configurações" onPress={salvar} />
         <View style={styles.espaco} />
         <Botao titulo="Sair da conta" variante="secundario" onPress={logout} />
@@ -175,14 +184,10 @@ const criarStyles = (colors: AppColors) => StyleSheet.create({
   titulo: { color: colors.text, fontSize: 28, fontWeight: "900", marginBottom: 8 },
   input: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 14, borderWidth: 1, color: colors.text, minHeight: 50, paddingHorizontal: 14 },
   inputFlex: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 14, borderWidth: 1, color: colors.text, flex: 1, minHeight: 50, paddingHorizontal: 14 },
+  campoFlex: { flex: 1, gap: 6 },
+  campoLabel: { color: colors.muted, fontSize: 12, fontWeight: "900" },
   label: { color: colors.text, fontWeight: "900", marginTop: 8 },
-  labelMenor: { color: colors.text, fontWeight: "900", marginTop: 2 },
   linha: { flexDirection: "row", gap: 10 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 9 },
-  chipAtivo: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
-  chipTexto: { color: colors.muted, fontWeight: "900" },
-  chipTextoAtivo: { color: colors.primary },
   paletasGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "space-between" },
   paletaBotao: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 14, borderWidth: 1, minHeight: 112, padding: 12, width: "48%" },
   paletaBotaoAtivo: { backgroundColor: colors.primarySoft, borderColor: colors.primary, borderWidth: 2 },

@@ -1,0 +1,32 @@
+appId: host.exp.exponent
+---
+
+- clearState
+
+- launchApp
+
+# Força o Expo Go a abrir o seu projeto localmente (verifique a porta no seu terminal do expo)
+- openLink: exp://127.0.0.1:8081
+
+- tapOn: "Continue"
+- tapOn: "Reload"
+
+# Aguarda até 30 segundos para o Expo Go carregar a interface (o primeiro bundle costuma demorar)
+- extendedWaitUntil:
+    visible: "Criar cadastro"
+    timeout: 30000
+
+# === FLUXO DE ALTERAÇÃO DE TEMA / ACESSIBILIDADE ===
+
+- tapOn: "Criar cadastro"
+
+# Confirma que a tela abriu na etapa de acessibilidade.
+- assertVisible: "Cor de acessibilidade"
+
+# Escolhe outra paleta. O app deve aplicar a cor nova imediatamente.
+- tapOn: "Ocean Focus"
+
+# Avança para a etapa 2 (Dados da Conta)
+- tapOn: "Avançar"
+
+

@@ -6,6 +6,7 @@ import type { Socket } from "socket.io-client";
 import { useApp } from "../context/AppContext";
 import { AppColors } from "../../constants/theme";
 import { Botao } from "../components/Botao";
+import { BrandHeader } from "../components/BrandHeader";
 import {
   conectarSocketIo,
   publicarCalculoAguaIo,
@@ -293,8 +294,11 @@ export function HidratacaoScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <BrandHeader compact showBackButton />
         <Text style={styles.titulo}>Hidratação Inteligente</Text>
-        <Text style={styles.subtitulo}>Sensores, localização e cálculo em tempo real para sua meta diária.</Text>
+        <Text style={styles.subtitulo}>
+          Preencha seus dados uma vez para calcular quanto de água beber no dia.
+        </Text>
 
         <View style={styles.card}>
           <View style={styles.cardTopo}>
@@ -311,6 +315,83 @@ export function HidratacaoScreen() {
             {hidratacao.consumidoMl}/{metaMl || "--"} ml consumidos - {coposRestantes} medidas restantes
           </Text>
           {!!erroTempoReal && <Text style={styles.erroTexto}>{erroTempoReal}</Text>}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.labelForte}>Seus dados para o cálculo</Text>
+          <Text style={styles.textoPequeno}>
+            Informe peso, altura e idade. A temperatura e umidade podem vir do sensor IoT ou ser ajustadas manualmente.
+          </Text>
+
+          <View style={styles.linha}>
+            <TextInput
+              style={styles.input}
+              placeholder="Peso kg"
+              placeholderTextColor={colors.muted}
+              value={peso}
+              onChangeText={setPeso}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Altura cm"
+              placeholderTextColor={colors.muted}
+              value={altura}
+              onChangeText={setAltura}
+              keyboardType="numeric"
+            />
+          </View>
+
+          <View style={styles.linha}>
+            <TextInput
+              style={styles.input}
+              placeholder="Idade"
+              placeholderTextColor={colors.muted}
+              value={idade}
+              onChangeText={setIdade}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Temperatura"
+              placeholderTextColor={colors.muted}
+              value={temperatura}
+              onChangeText={setTemperatura}
+              keyboardType="numeric"
+            />
+          </View>
+
+          <View style={styles.linha}>
+            <TextInput
+              style={styles.input}
+              placeholder="Umidade %"
+              placeholderTextColor={colors.muted}
+              value={umidade}
+              onChangeText={setUmidade}
+              keyboardType="numeric"
+            />
+          </View>
+
+          <Text style={styles.labelForte}>Atividade física</Text>
+          <View style={styles.chipsCompactos}>
+            {niveisAtividade.map((item) => (
+              <TouchableOpacity
+                key={item.valor}
+                style={[styles.chip, nivelAtividade === item.valor && styles.chipAtivo]}
+                onPress={() => setNivelAtividade(item.valor)}
+              >
+                <Text style={[styles.chipTexto, nivelAtividade === item.valor && styles.chipTextoAtivo]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Botao
+            titulo={aguardandoCalculo ? "Calculando no servidor..." : metaMl > 0 ? "Recalcular meta" : "Salvar dados e calcular meta"}
+            onPress={calcularESalvar}
+            carregando={aguardandoCalculo}
+          />
         </View>
 
         <View style={styles.card}>
@@ -360,93 +441,27 @@ export function HidratacaoScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.linha}>
-          <TextInput
-            style={styles.input}
-            placeholder="Peso kg"
-            placeholderTextColor={colors.muted}
-            value={peso}
-            onChangeText={setPeso}
-            keyboardType="numeric"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Altura cm"
-            placeholderTextColor={colors.muted}
-            value={altura}
-            onChangeText={setAltura}
-            keyboardType="numeric"
-          />
-        </View>
+        {metaMl > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.labelForte}>Registrar consumo</Text>
+            <Text style={styles.textoPequeno}>Escolha a medida padrão e toque no botão sempre que beber água.</Text>
+            <View style={styles.chips}>
+              {medidas.map((medida) => (
+                <TouchableOpacity
+                  key={medida}
+                  style={[styles.chip, hidratacao.medidaPadraoMl === medida && styles.chipAtivo]}
+                  onPress={() => selecionarMedidaAgua(medida)}
+                >
+                  <Text style={[styles.chipTexto, hidratacao.medidaPadraoMl === medida && styles.chipTextoAtivo]}>
+                    {medida >= 1000 ? `${medida / 1000} L` : `${medida} ml`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-        <View style={styles.linha}>
-          <TextInput
-            style={styles.input}
-            placeholder="Idade"
-            placeholderTextColor={colors.muted}
-            value={idade}
-            onChangeText={setIdade}
-            keyboardType="numeric"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Temperatura"
-            placeholderTextColor={colors.muted}
-            value={temperatura}
-            onChangeText={setTemperatura}
-            keyboardType="numeric"
-          />
-        </View>
-
-        <View style={styles.linha}>
-          <TextInput
-            style={styles.input}
-            placeholder="Umidade %"
-            placeholderTextColor={colors.muted}
-            value={umidade}
-            onChangeText={setUmidade}
-            keyboardType="numeric"
-          />
-        </View>
-
-        <Text style={styles.labelForte}>Atividade física</Text>
-        <View style={styles.chips}>
-          {niveisAtividade.map((item) => (
-            <TouchableOpacity
-              key={item.valor}
-              style={[styles.chip, nivelAtividade === item.valor && styles.chipAtivo]}
-              onPress={() => setNivelAtividade(item.valor)}
-            >
-              <Text style={[styles.chipTexto, nivelAtividade === item.valor && styles.chipTextoAtivo]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Botao
-          titulo={aguardandoCalculo ? "Calculando no servidor..." : "Calcular e salvar meta"}
-          onPress={calcularESalvar}
-          carregando={aguardandoCalculo}
-        />
-        <View style={styles.espaco} />
-
-        <Text style={styles.labelForte}>Medida padrão</Text>
-        <View style={styles.chips}>
-          {medidas.map((medida) => (
-            <TouchableOpacity
-              key={medida}
-              style={[styles.chip, hidratacao.medidaPadraoMl === medida && styles.chipAtivo]}
-              onPress={() => selecionarMedidaAgua(medida)}
-            >
-              <Text style={[styles.chipTexto, hidratacao.medidaPadraoMl === medida && styles.chipTextoAtivo]}>
-                {medida >= 1000 ? `${medida / 1000} L` : `${medida} ml`}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Botao titulo="Registrar água" onPress={registrar} />
+            <Botao titulo="Registrar água" onPress={registrar} />
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -478,7 +493,7 @@ const criarStyles = (colors: AppColors) => StyleSheet.create({
   erroTexto: { color: colors.danger, fontSize: 12, fontWeight: "800", marginTop: 10 },
   barra: { backgroundColor: colors.background, borderRadius: 999, height: 10, marginTop: 14, overflow: "hidden" },
   barraInterna: { backgroundColor: colors.primary, height: "100%" },
-  linha: { flexDirection: "row", gap: 10, marginBottom: 12 },
+  linha: { flexDirection: "row", gap: 10, marginTop: 12 },
   input: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -502,6 +517,7 @@ const criarStyles = (colors: AppColors) => StyleSheet.create({
   infoLabel: { color: colors.muted, fontSize: 12, fontWeight: "800", marginTop: 2 },
   labelForte: { color: colors.text, fontWeight: "900", marginBottom: 10 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
+  chipsCompactos: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14 },
   chip: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -527,5 +543,4 @@ const criarStyles = (colors: AppColors) => StyleSheet.create({
     padding: 12,
   },
   botaoLocalizacaoTexto: { color: colors.primary, fontWeight: "900" },
-  espaco: { height: 12 },
 });

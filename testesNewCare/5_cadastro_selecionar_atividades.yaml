@@ -1,0 +1,94 @@
+appId: host.exp.exponent
+---
+- clearState
+
+- launchApp
+# Força o Expo Go a abrir o seu projeto localmente
+- openLink: exp://127.0.0.1:8081
+
+- tapOn: "Continue"
+- tapOn: "Reload"
+
+# Aguarda até 30 segundos para o Expo Go carregar a interface
+- extendedWaitUntil:
+    visible: "Criar cadastro"
+    timeout: 60000
+
+# === FLUXO DE CADASTRO ===
+- tapOn: "Criar cadastro"
+
+# Avança pela etapa inicial de acessibilidade/tema.
+- tapOn: "Avançar"
+
+# Preenche os dados da conta.
+- extendedWaitUntil:
+    visible: "Dados da conta"
+    timeout: 10000
+- tapOn: "Nome"
+- inputText: "Luciana Costa"
+
+- tapOn: "Email"
+- inputText: "luciana.costa@teste.com"
+
+- tapOn: "Senha"
+- inputText: "SenhaSegura123"
+
+- tapOn: "Confirmar senha"
+- inputText: "SenhaSegura123"
+
+# Esconde o teclado virtual para revelar o botão "Avançar"
+- hideKeyboard
+
+# Agora sim, avança para a seleção de atividades
+- tapOn: "Avançar"
+- extendedWaitUntil:
+    visible: "Alongamento ativo"
+    timeout: 10000
+
+# --- Seleção de Atividades 1 ---
+- tapOn: "Alongamento ativo"
+- tapOn: "Caminhada leve"
+- tapOn: "Avançar"
+- extendedWaitUntil:
+    visible: "Respiração consciente"
+    timeout: 10000
+
+# --- Seleção de Atividades 2 ---
+- tapOn: "Respiração consciente"
+- tapOn: "Pausa mental"
+- tapOn: "Avançar"
+- extendedWaitUntil:
+    visible: "Ouvir música"
+    timeout: 10000
+
+# --- Seleção de Atividades 3 ---
+- tapOn: "Ouvir música"
+- tapOn: "Pausa de lazer"
+- tapOn: "Avançar"
+- extendedWaitUntil:
+    visible: "Reduzir telas"
+    timeout: 10000
+
+# --- Seleção de Atividades 4 ---
+- tapOn: "Reduzir telas"
+- tapOn: "Preparar ambiente"
+- tapOn: "Avançar"
+
+# Pré-visualização dos hábitos
+- extendedWaitUntil:
+    visible: "Pré-visualização dos hábitos"
+    timeout: 10000
+- tapOn: "Avançar"
+
+# Resumo do cadastro
+- extendedWaitUntil:
+    visible: "Resumo do cadastro"
+    timeout: 10000
+- tapOn: "Avançar"
+
+# === FINALIZAÇÃO ===
+- extendedWaitUntil:
+    visible: "Finalizar cadastro"
+    timeout: 10000
+
+- tapOn: "Finalizar cadastro"

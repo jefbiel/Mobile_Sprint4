@@ -22,6 +22,14 @@ export function LoginScreen({ navigation }: Props) {
       await login(email, senha);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tente novamente em alguns instantes.";
+      if (message.includes("Cadastro não encontrado")) {
+        Alert.alert("Cadastro não encontrado", message, [
+          { text: "Criar cadastro", onPress: () => navigation.navigate("Cadastro") },
+          { text: "OK", style: "cancel" },
+        ]);
+        return;
+      }
+
       Alert.alert("Não foi possível entrar", message);
     } finally {
       setCarregando(false);

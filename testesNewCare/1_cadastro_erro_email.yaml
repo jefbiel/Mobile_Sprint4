@@ -1,0 +1,41 @@
+appId: host.exp.exponent
+---
+- clearState
+
+- launchApp
+
+# Força o Expo Go a abrir o seu projeto localmente (verifique a porta no seu terminal do expo)
+- openLink: exp://127.0.0.1:8081
+
+- tapOn: "Continue"
+- tapOn: "Reload"
+
+# Aguarda até 30 segundos para o Expo Go carregar a interface (o primeiro bundle costuma demorar)
+- extendedWaitUntil:
+    visible: "Criar cadastro"
+    timeout: 30000
+
+# === SEU FLUXO DE CADASTRO ===
+# (Ajuste os textos entre aspas para os botões/campos reais do seu app)
+- tapOn: "Criar cadastro"
+
+- tapOn: "Avançar"
+
+- tapOn: "Nome"
+- inputText: "Larissa Oliveira"
+
+- tapOn: "Email"
+- inputText: "larissa.oliveira@@email.com"
+
+- tapOn: "Senha"
+- inputText: "SenhaSegura123"
+
+- tapOn: "Confirmar Senha"
+- inputText: "SenhaSegura1234"
+
+# Esconde o teclado virtual para revelar o botão "Avançar"
+- hideKeyboard
+
+- tapOn: "Avançar"
+
+- tapOn: "OK"

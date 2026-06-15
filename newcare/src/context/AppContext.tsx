@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { MISSOES, gerarMissoesPersonalizadas } from "../data/missoes";
 import { AtualizarPerfilDados, CadastroDados, CategoriaMissao, Conquista, DadosSaudeHidratacao, HidratacaoDiaria, Missao, NovaMissaoDados, OnboardingPerfil, PreferenciasUsuario, StatusMissao, TipoMissao, Usuario } from "../types";
 import { buscar, remover, salvar } from "../services/storage";
+import { buscarSeguro, salvarSeguro } from "../services/secure-storage";
 import { Colors, PALETA_PADRAO, PaletaAcessibilidadeId, AppColors } from "../../constants/theme";
 import { emailValido } from "../utils/validacoes";
 
@@ -39,6 +40,14 @@ const PREFERENCIAS_PADRAO: PreferenciasUsuario = {
   metaDiaria: 3,
   paletaAcessibilidade: PALETA_PADRAO,
 };
+const CHAVE_CREDENCIAIS_LOGIN = "credenciaisLoginSeguras";
+const CHAVE_CREDENCIAIS_LOGIN_LEGADO = "credenciaisLogin";
+
+interface CredenciaisLogin {
+  nome: string;
+  email: string;
+  senha: string;
+}
 
 function dataHoje() {
   return new Date().toISOString().slice(0, 10);
@@ -159,6 +168,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const storedHidratacao = normalizarHidratacao(await buscar<HidratacaoDiaria>("hidratacao"));
         setHidratacao(storedHidratacao);
         await salvar("hidratacao", storedHidratacao);
+        await remover(CHAVE_CREDENCIAIS_LOGIN_LEGADO);
       } finally {
         setCarregandoInicial(false);
       }
@@ -172,9 +182,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!emailValido(emailNormalizado)) throw new Error("Email inválido");
     if (senha.length < 6) throw new Error("Senha curta");
 
+    const credenciais = await buscarSeguro<CredenciaisLogin>(CHAVE_CREDENCIAIS_LOGIN);
+
+    if (!credenciais) {
+      throw new Error("Cadastro não encontrado. Crie seu cadastro para acessar o NewCare.");
+    }
+
+    const emailSalvo = credenciais.email.trim().toLowerCase();
+
+    if (emailNormalizado !== emailSalvo) {
+      throw new Error("Cadastro não encontrado. Crie seu cadastro para acessar o NewCare.");
+    }
+
+    if (senha !== credenciais.senha) {
+      throw new Error("Senha incorreta.");
+    }
+
+    const usuarioSalvo = await buscar<Usuario>("user");
+    if (usuarioSalvo?.email?.trim().toLowerCase() === emailSalvo) {
+      const usuarioNormalizado = {
+        ...usuarioSalvo,
+        conquistas: usuarioSalvo.conquistas ?? [],
+        diasPerfeitos: usuarioSalvo.diasPerfeitos ?? 0,
+        onboardingCompleto: usuarioSalvo.onboardingCompleto ?? true,
+        habitosConfirmados: usuarioSalvo.habitosConfirmados ?? usuarioSalvo.onboardingCompleto ?? true,
+        preferencias: {
+          ...PREFERENCIAS_PADRAO,
+          ...usuarioSalvo.preferencias,
+        },
+      };
+
+      setUsuario(usuarioNormalizado);
+      setPaletaTemporaria(usuarioNormalizado.preferencias.paletaAcessibilidade);
+      return;
+    }
+
     const user: Usuario = {
       id: emailNormalizado,
-      nome: nomePorEmail(emailNormalizado) || "Usuário",
+      nome: credenciais.nome || nomePorEmail(emailNormalizado) || "Usuário",
       email: emailNormalizado,
       nivel: 1,
       xp: 0,
@@ -197,6 +242,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUsuario(user);
     setPaletaTemporaria(PALETA_PADRAO);
     await salvar("user", user);
+    await salvarSeguro(CHAVE_CREDENCIAIS_LOGIN, {
+      nome: user.nome,
+      email: user.email,
+      senha,
+    });
   }
 
   async function cadastrar(dados: CadastroDados) {
@@ -223,8 +273,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       moedas: 0,
       streak: 0,
       areaDominante: dados.foco,
-      onboardingCompleto: false,
+      onboardingCompleto: !!dados.avatarId,
       habitosConfirmados: true,
+      avatarId: dados.avatarId,
       perfil,
       preferencias: {
         ...PREFERENCIAS_PADRAO,
@@ -238,6 +289,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPaletaTemporaria(dados.paletaAcessibilidade);
     setMissoes(plano);
     await salvar("user", user);
+    await salvarSeguro(CHAVE_CREDENCIAIS_LOGIN, {
+      nome: user.nome,
+      email: user.email,
+      senha: dados.senha,
+    });
     await salvar("missoes", plano);
   }
 

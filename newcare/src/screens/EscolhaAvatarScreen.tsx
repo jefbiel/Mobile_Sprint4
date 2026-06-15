@@ -7,10 +7,10 @@ import { useApp } from "../context/AppContext";
 import { AppColors } from "../../constants/theme";
 
 export const avataresIniciais = [
-  { id: "avatar-1", nome: "Guardião Mental", simbolo: "🧠", foco: "Fase 1" },
-  { id: "avatar-2", nome: "Exploradora Física", simbolo: "💪", foco: "Fase 1" },
-  { id: "avatar-3", nome: "Viajante do Lazer", simbolo: "🎮", foco: "Fase 1" },
-  { id: "avatar-4", nome: "Sentinela do Sono", simbolo: "🌙", foco: "Fase 1" },
+  { id: "avatar-1", nome: "Aprendiz", simbolo: "📘", foco: "Fase 1" },
+  { id: "avatar-2", nome: "Explorador", simbolo: "🧭", foco: "Fase 1" },
+  { id: "avatar-3", nome: "Guardião", simbolo: "🛡️", foco: "Fase 1" },
+  { id: "avatar-4", nome: "Nômade", simbolo: "🌙", foco: "Fase 1" },
 ];
 
 export function EscolhaAvatarScreen() {

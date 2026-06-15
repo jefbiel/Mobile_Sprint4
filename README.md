@@ -66,42 +66,6 @@ Observação: os comandos acima devem ser executados dentro da pasta `newcare`.
 
 ---
 
-## Screenshots
-
-As imagens do app ficam em [`newcare/docs/screenshots`](newcare/docs/screenshots). A galeria abaixo mostra os principais fluxos e estados visuais do NewCare.
-
-### Fluxo principal
-
-| Login | Início | Missões |
-| --- | --- | --- |
-| <img src="newcare/docs/screenshots/TelaLogin.png" alt="Tela de Login" width="220" /> | <img src="newcare/docs/screenshots/TelaInicio.png" alt="Tela Inicial" width="220" /> | <img src="newcare/docs/screenshots/TelaMissoes.png" alt="Tela de Missões" width="220" /> |
-
-| Progresso com XP | Progresso sem XP | Perfil |
-| --- | --- | --- |
-| <img src="newcare/docs/screenshots/TelaProgressoComXP.png" alt="Tela de Progresso com XP" width="220" /> | <img src="newcare/docs/screenshots/TelaProgressoSemXP.png" alt="Tela de Progresso sem XP" width="220" /> | <img src="newcare/docs/screenshots/TelaPerfil.png" alt="Tela de Perfil" width="220" /> |
-
-### Estados e feedbacks
-
-| E-mail inválido | Senha curta | Missão concluída |
-| --- | --- | --- |
-| <img src="newcare/docs/screenshots/TelaLoginAlertaEmailInvalido.png" alt="Alerta de e-mail inválido no login" width="220" /> | <img src="newcare/docs/screenshots/TelaLoginAlertaSenhaCurta.png" alt="Alerta de senha curta no login" width="220" /> | <img src="newcare/docs/screenshots/TelaInicioMensagemMissaoConcluida.png" alt="Mensagem de missão concluída na tela inicial" width="220" /> |
-
-| Adicionar missão | Missão adicionada | Sair do perfil |
-| --- | --- | --- |
-| <img src="newcare/docs/screenshots/TelaMissoesAdicionarMissoes.png" alt="Tela para adicionar missões" width="220" /> | <img src="newcare/docs/screenshots/TelaMissaoAdicionada.png" alt="Confirmação de missão adicionada" width="220" /> | <img src="newcare/docs/screenshots/TelaPerfilSair.png" alt="Opção de sair no perfil" width="220" /> |
-
-### Tema escuro
-
-| Início | Missões | Progresso |
-| --- | --- | --- |
-| <img src="newcare/docs/screenshots/TelaInicioTemaEscuro.png" alt="Tela inicial em tema escuro" width="220" /> | <img src="newcare/docs/screenshots/TelaMissoesTemaEscuro.png" alt="Tela de missões em tema escuro" width="220" /> | <img src="newcare/docs/screenshots/TelaProgressoTemaEscuro.png" alt="Tela de progresso em tema escuro" width="220" /> |
-
-| Perfil | Sair do perfil |
-| --- | --- |
-| <img src="newcare/docs/screenshots/TelaPerfilTemaEscuro.png" alt="Tela de perfil em tema escuro" width="220" /> | <img src="newcare/docs/screenshots/TelaPerfilSairTemaEscuro.png" alt="Opção de sair no perfil em tema escuro" width="220" /> |
-
----
-
 ## Funcionalidades
 
 - Login com validação de e-mail e senha.
@@ -288,6 +252,7 @@ server/
 - TypeScript
 - React Navigation
 - AsyncStorage
+- Expo SecureStore
 - Socket.IO
 - Expo Location
 - Express para o servidor local de tempo real/IoT
@@ -295,14 +260,9 @@ server/
 
 ## Login de teste
 
-O app aceita qualquer e-mail válido e senha com pelo menos 6 caracteres.
+O app valida o login contra as credenciais criadas no próprio fluxo de cadastro. Se o e-mail digitado não bater com o e-mail salvo, ele orienta a criar cadastro.
 
-Exemplo:
-
-```txt
-email: teste@email.com
-senha: 123456
-```
+Quando um novo cadastro é finalizado, o e-mail e a senha desse cadastro passam a ser as credenciais salvas com Expo SecureStore para os próximos logins. Não há e-mail ou senha padrão expostos no código.
 
 ## Scripts úteis
 

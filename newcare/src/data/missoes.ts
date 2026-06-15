@@ -90,6 +90,24 @@ export const MISSOES: Missao[] = [
   },
 ];
 
+const RECOMPENSAS_POR_DURACAO: Record<number, { recompensaXp: number; recompensaMoedas: number }> = {
+  5: { recompensaXp: 20, recompensaMoedas: 4 },
+  10: { recompensaXp: 40, recompensaMoedas: 5 },
+  15: { recompensaXp: 60, recompensaMoedas: 8 },
+  20: { recompensaXp: 80, recompensaMoedas: 10 },
+  25: { recompensaXp: 80, recompensaMoedas: 13 },
+  30: { recompensaXp: 80, recompensaMoedas: 15 },
+  35: { recompensaXp: 80, recompensaMoedas: 18 },
+  40: { recompensaXp: 80, recompensaMoedas: 20 },
+  45: { recompensaXp: 80, recompensaMoedas: 23 },
+};
+
+export function calcularRecompensasPorDuracao(duracaoMinutos: number) {
+  const duracaoSegura = Math.min(45, Math.max(5, Math.round(duracaoMinutos / 5) * 5));
+
+  return RECOMPENSAS_POR_DURACAO[duracaoSegura];
+}
+
 export function gerarMissoesPersonalizadas(foco: CategoriaMissao, tempoDiario: number, atividadesSelecionadas: string[] = []) {
   if (atividadesSelecionadas.length > 0) {
     const atividades = Object.entries(ATIVIDADES_ONBOARDING)
@@ -102,19 +120,23 @@ export function gerarMissoesPersonalizadas(foco: CategoriaMissao, tempoDiario: n
       .filter((atividade) => atividadesSelecionadas.includes(atividade.id));
     const duracaoBase = Math.max(5, Math.floor(tempoDiario / Math.max(1, atividades.length)));
 
-    return atividades.map((atividade, index) => ({
-      id: `onboarding-${atividade.id}`,
-      titulo: atividade.titulo,
-      descricao: atividade.descricao,
-      categoria: atividade.categoria,
-      tipo: atividade.tipo,
-      recompensaXp: Math.min(80, Math.max(20, duracaoBase * 4)),
-      recompensaMoedas: Math.min(25, Math.max(5, Math.ceil(duracaoBase / 2))),
-      duracaoMinutos: duracaoBase + index * 5 <= 45 ? duracaoBase + index * 5 : 45,
-      status: StatusMissao.Pendente,
-      progressoAtual: 0,
-      objetivo: 1,
-    }));
+    return atividades.map((atividade, index) => {
+      const duracaoMinutos = duracaoBase + index * 5 <= 45 ? duracaoBase + index * 5 : 45;
+      const recompensas = calcularRecompensasPorDuracao(duracaoMinutos);
+
+      return {
+        id: `onboarding-${atividade.id}`,
+        titulo: atividade.titulo,
+        descricao: atividade.descricao,
+        categoria: atividade.categoria,
+        tipo: atividade.tipo,
+        ...recompensas,
+        duracaoMinutos,
+        status: StatusMissao.Pendente,
+        progressoAtual: 0,
+        objetivo: 1,
+      };
+    });
   }
 
   const limite = tempoDiario <= 10 ? 2 : tempoDiario <= 20 ? 3 : 4;

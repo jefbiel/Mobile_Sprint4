@@ -1,0 +1,48 @@
+appId: host.exp.exponent
+---
+
+- clearState
+
+- launchApp
+
+# Força o Expo Go a abrir o seu projeto localmente (verifique a porta no seu terminal do expo)
+# IMPORTANTE: Troque o 127.0.0.1 pelo IP que aparece no terminal onde o Expo está rodando
+- openLink: exp://127.0.0.1:8081
+
+- tapOn: "Continue"
+- tapOn: "Reload"
+
+# Aguarda até 60 segundos para o Expo Go carregar a interface (o primeiro bundle costuma demorar)
+- extendedWaitUntil:
+    visible: "Criar cadastro"
+    timeout: 60000
+
+# === SEU FLUXO DE CADASTRO ===
+# (Ajuste os textos entre aspas para os botões/campos reais do seu app)
+- tapOn: "Criar cadastro"
+
+- tapOn: "Avançar"
+
+- tapOn: "Nome"
+- inputText: "Gabriel Prado"
+
+- tapOn: "Email"
+- inputText: "gabriel.prado@email.com"
+
+- tapOn: "Senha"
+- inputText: "SenhaSegura123"
+
+- tapOn: "Confirmar Senha"
+- inputText: "SenhaSegura1234"
+
+# Esconde o teclado virtual para revelar o botão "Avançar"
+- hideKeyboard
+
+- tapOn: "Avançar"
+
+# Valida se o título e a mensagem do alerta de erro apareceram na tela
+- assertVisible: "Senhas diferentes"
+- assertVisible: "Confirme a senha usando o mesmo valor."
+
+# (Opcional) Toca no botão OK para fechar o alerta e concluir o teste
+- tapOn: "OK"

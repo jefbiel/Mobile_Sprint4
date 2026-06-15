@@ -1,0 +1,96 @@
+appId: host.exp.exponent
+---
+- clearState
+
+- launchApp
+
+# Força o Expo Go a abrir o seu projeto localmente (verifique a porta no seu terminal do expo)
+- openLink: exp://127.0.0.1:8081
+
+- tapOn: "Continue"
+- tapOn: "Reload"
+
+- extendedWaitUntil:
+    visible: "Criar cadastro"
+    timeout: 60000
+    
+# Aguarda até 30 segundos para o Expo Go carregar a interface (o primeiro bundle costuma demorar)
+- extendedWaitUntil:
+    visible: "Criar cadastro"
+    timeout: 60000
+
+# === SEU FLUXO DE CADASTRO ===
+# (Ajuste os textos entre aspas para os botões/campos reais do seu app)
+- tapOn: "Criar cadastro"
+
+- tapOn: "Avançar"
+
+- tapOn: "Nome"
+- inputText: "Carloss Abreu"
+
+- tapOn: "Email"
+- inputText: "carlos.abreu@teste.com"
+
+- tapOn: "Senha"
+- inputText: "SenhaSegura123"
+
+- tapOn: "Confirmar Senha"
+- inputText: "SenhaSegura123"
+
+# Esconde o teclado virtual para revelar o botão "Avançar"
+- hideKeyboard
+
+- tapOn: "Avançar"
+
+- tapOn: "Alongamento ativo"
+- tapOn: "Caminhada leve"
+
+- tapOn: "Avançar"
+
+- tapOn: "Respiração consciente"
+- tapOn: "Pausa mental"
+
+- tapOn: "Avançar"
+
+- tapOn: "Ouvir música"
+- tapOn: "Pausa de lazer"
+
+- tapOn: "Avançar"
+
+- tapOn: "Reduzir telas"
+- tapOn: "Preparar ambiente"
+
+- tapOn: "Avançar"
+
+- tapOn: "Avançar"
+
+- tapOn: "Avançar"
+
+- tapOn: "Finalizar cadastro"
+
+- tapOn: "Calcular hidratação"
+
+- tapOn: "Peso kg"
+- inputText: "65"
+
+- tapOn: "Altura cm"
+- inputText: "170"
+
+- tapOn: "Idade"
+- inputText: "25"
+
+- hideKeyboard
+
+- tapOn: "Salvar dados e calcular meta"
+
+- extendedWaitUntil:
+    visible: "Meta calculada"
+    timeout: 15000
+
+- tapOn: "OK"
+
+- extendedWaitUntil:
+    visible: "Recalcular meta"
+    timeout: 15000
+
+
